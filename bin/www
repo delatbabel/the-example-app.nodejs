@@ -5,12 +5,30 @@
  */
 const app = require('../app')
 const http = require('http')
+const v8Profiler = require('v8-profiler-next');
+const fs = require('fs');
 
 /**
  * Get port from environment and store in Express
  */
 const port = normalizePort(process.env.PORT || '3000')
 app.set('port', port)
+
+/**
+ * Take CPU Profile
+ */
+const title = 'contentful';
+// example 5 mins cpu profile
+console.log('Start profiling on app ' + title);
+v8Profiler.startProfiling(title, true);
+setTimeout(() => {
+  const profile = v8Profiler.stopProfiling(title);
+  profile.export(function (error, result) {
+    fs.writeFileSync(`${title}.cpuprofile`, result);
+    console.log('Stop profiling on app ' + title);
+    profile.delete();
+  });
+}, 1 * 60 * 1000);
 
 /**
  * Create HTTP server
