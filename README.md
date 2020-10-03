@@ -1,7 +1,5 @@
 ## The node.js example app
 
-[![CircleCI](https://img.shields.io/circleci/project/github/contentful/the-example-app.nodejs.svg)](https://circleci.com/gh/contentful/the-example-app.nodejs)
-
 The node.js example app teaches the very basics of how to work with Contentful:
 
 - consume content from the Contentful Delivery and Preview APIs
@@ -121,4 +119,85 @@ docker run -p 3000:3000 \
   -e CONTENTFUL_DELIVERY_TOKEN=<DELIVERY_ACCESS_TOKEN> \
   -e CONTENTFUL_PREVIEW_TOKEN=<PREVIEW_ACCESS_TOKEN> \
   -d the-example-app.nodejs
+```
+
+
+## Performance Testing
+
+This branch of the code includes some features to allow performance testing for the purpose of my training course.
+
+This is the setup script that I have been using to set this application up on a CentOS 8 minimal install VM running under VirtualBox:
+
+### Steps to Install as root
+
+root installation is only used to install the base system packages.
+
+```
+# Install Node.JS, npm and PM2 (https://pm2.keymetrics.io/)
+dnf module enable nodejs:12
+dnf -y install nodejs
+node --version
+npm install pm2@latest -g
+
+# Install git and other tools
+dnf -y install git
+dnf -y install psmisc
+dnf -y update
+
+# Enable port 3000 in the firewall
+# This is the port on which the application runs
+# If you want to have the application listening on port 80/443 then set up nginx or
+# Apache as a front end reverse proxy.
+firewall-cmd --zone=public --permanent --add-port=3000/tcp
+firewall-cmd --reload
+firewall-cmd --list-all
+
+# Things needed to make the application build
+dnf -y install python38 make
+dnf -y groupinstall 'Development Tools'
+
+# Performance tools
+npm install -g chrome2calltree
+
+# PM2 doesn't work under SELinux so disable that for the time being
+# See https://stackoverflow.com/questions/62814539/pm2-keeps-getting-killed-every-90-seconds-on-centos-8
+cat /etc/selinux/config | sed 's/=enforcing/=permissive/g' > /tmp/selinux.tmp
+/bin/mv /tmp/selinux.tmp /etc/selinux/config
+setenforce permissive
+```
+
+### Steps to Install as Non-Privileged User
+
+As any other user on the system (I use the username "del"), run the following commands:
+
+```
+# Grab the branch with profiling support from github
+git clone git@github.com:delatbabel/the-example-app.nodejs.git
+cd the-example-app.nodejs/
+git checkout feature/add-profiling-support
+git pull
+
+# Setup
+npm install
+pm2 startup
+
+# This command makes pm2 run at boot time
+# Change the username here as needed
+sudo env PATH=$PATH:/usr/bin /usr/local/lib/node_modules/pm2/bin/pm2 startup systemd -u del --hp /home/del
+
+# Start the app via pm2
+pm2 --name contentful start node ./bin/www
+pm2 list all
+
+# Save the pm2 config so it restarts on boot
+pm2 save
+
+# Check that port 3000 is listening
+netstat -plunt
+
+# Now you can view the logs!
+pm2 logs
+
+# If you need to restart the app, do this:
+pm2 restart all
 ```
