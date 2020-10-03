@@ -200,4 +200,7 @@ pm2 logs
 
 # If you need to restart the app, do this:
 pm2 restart all
+
+# A simple terminal based dashboard to see what's going on while you're running jMeter
+pm2 monit
 ```
